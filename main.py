@@ -205,7 +205,7 @@ class Modules:
 if __name__ == "__main__":
     target = input("Target: ")
     mod = Modules(target)
-    # mod.IsHTTP()
+    mod.IsHTTP()
     mod.IsSSH()
-    # mod.IsFTP()
-    # mod.IsTELNET()
+    mod.IsFTP()
+    mod.IsTELNET()
