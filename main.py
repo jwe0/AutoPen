@@ -212,7 +212,7 @@ class Modules:
                 message = ""
                 for exploit in exploits:
                     message += f"[{str(exploits.index(exploit) + 1)}]\t » {exploit}\n"
-                print("[+] Exploits found\n{}".format(message))
+                print("[+] Exploits found {}\n{}".format(len(exploits), message))
 
         else:
             print("[-] SSH server not detected")
@@ -240,7 +240,7 @@ class Modules:
                 message = ""
                 for exploit in exploits:
                     message += f"[{str(exploits.index(exploit) + 1)}]\t » {exploit}\n"
-                print("[+] Exploits found\n{}".format(message))
+                print("[+] Exploits found {}\n{}".format(len(exploits), message))
 
         else:
             print("[-] FTP server not detected")
