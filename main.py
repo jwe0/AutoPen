@@ -1,16 +1,29 @@
 import socket, requests, paramiko
 from ftplib import FTP
 
-def PortScan(self, ports):
-    openp = []
-    for port in ports:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(5)
-        con = s.connect_ex((self.target, port))
-        if con == 0:
-            openp.append(str(port))
+class GeneralModules:
+    def __init__(self, target) -> None:
+        self.target = target
 
-    return openp
+    def PortScan(self, ports):
+        openp = []
+        for port in ports:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(5)
+            con = s.connect_ex((self.target, port))
+            if con == 0:
+                openp.append(str(port))
+
+        return openp
+
+    def Banner(self, port):
+        s = socket.socket()
+        s.settimeout(5)
+        s.connect((self.target, port))
+        banner = s.recv(1024).decode().strip()
+        s.close()
+
+        return banner
 
 class HTTPAttacks:
     def __init__(self, target) -> None:
@@ -92,6 +105,15 @@ class FTPAttacks:
             print(e)
             return (False, files)
         
+    def CheckBanner(self):
+        s = socket.socket()
+        s.settimeout(5)
+        s.connect((self.target, 21))
+        banner = s.recv(1024).decode().strip()
+        s.close()
+
+        return banner
+        
 class TELNETAttacks:
     def __init__(self, target) -> None:
         self.target = target
@@ -103,13 +125,14 @@ class Modules:
         self.SSHattack = SSHAttacks(target)
         self.FTPattack = FTPAttacks(target)
         self.TELNETattack = TELNETAttacks(target)
+        self.Modules = GeneralModules(target)
 
     
 
     def IsHTTP(self):
         print("[#] Checking for web server...\n")
         ports = [80, 8000, 8080, 443]
-        openp = PortScan(self, ports)
+        openp = self.Modules.PortScan(ports)
 
         if openp:
             title = self.HTTPattack.CheckPageTitle()
@@ -152,10 +175,10 @@ class Modules:
     def IsSSH(self):
         print("[#] Checking for SSH server...\n")
         ports = [22]
-        openp = PortScan(self, ports)
+        openp = self.Modules.PortScan(ports)
 
         if openp:
-            banner = self.SSHattack.CheckBanner()
+            banner = self.Modules.Banner(22)
             print("[+] SSH server detected {}".format(banner))
 
             algorithms = self.SSHattack.CheckAlgorithm()
@@ -178,10 +201,11 @@ class Modules:
     def IsFTP(self):
         print("[#] Checking for FTP server...\n")
         ports = [21]
-        openp = PortScan(self, ports)
+        openp = self.Modules.PortScan(ports)
 
         if openp:
-            print("[+] FTP server detected")
+            banner = self.Modules.Banner(21)
+            print("[+] FTP server detected {}".format(banner))
             anonlogon = self.FTPattack.CheckAnonymousLogin()
 
             if anonlogon[0]:
@@ -195,7 +219,7 @@ class Modules:
     def IsTELNET(self):
         print("[#] Checking for TELNET server...\n")
         ports = [23]
-        openp = PortScan(self, ports)
+        openp = self.Modules.PortScan(ports)
 
         if openp:
             print("[+] TELNET server detected")
@@ -204,6 +228,7 @@ class Modules:
 
 if __name__ == "__main__":
     target = input("Target: ")
+    print("[#] Scanning... (This may take a while)\n")
     mod = Modules(target)
     mod.IsHTTP()
     mod.IsSSH()
