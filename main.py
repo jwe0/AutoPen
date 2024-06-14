@@ -1,19 +1,21 @@
 import socket, requests
-from bs4 import BeautifulSoup
+from ftplib import FTP
+
+def PortScan(self, ports):
+    openp = []
+    for port in ports:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(5)
+        con = s.connect_ex((self.target, port))
+        if con == 0:
+            openp.append(str(port))
+
+    return openp
+
 class HTTPAttacks:
     def __init__(self, target) -> None:
         self.target = target
 
-    def PortScan(self, ports):
-        openp = []
-        for port in ports:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(5)
-            con = s.connect_ex((self.target, port))
-            if con == 0:
-                openp.append(str(port))
-
-        return openp
     
     def CheckCommonFiles(self):
         paths = []
@@ -59,6 +61,17 @@ class FTPAttacks:
     def __init__(self, target) -> None:
         self.target = target
 
+    def CheckAnonymousLogin(self):
+        try:
+            files = []
+            with FTP(self.target) as ftp:
+                ftp.login("anonymous", "anonymous")
+                for file in ftp.nlst():
+                    files.append(file)
+                return (True, files)
+        except Exception as e:
+            print(e)
+            return (False, files)
 class TELNETAttacks:
     def __init__(self, target) -> None:
         self.target = target
@@ -76,7 +89,7 @@ class Modules:
     def IsHTTP(self):
         print("[#] Checking for web server...\n")
         ports = [80, 8000, 8080, 443]
-        openp = self.attack.PortScan(ports)
+        openp = PortScan(self, ports)
 
         if openp:
             title = self.HTTPattack.CheckPageTitle()
@@ -119,7 +132,7 @@ class Modules:
     def IsSSH(self):
         print("[#] Checking for SSH server...\n")
         ports = [22]
-        openp = self.SSHattack.PortScan(ports)
+        openp = PortScan(self, ports)
 
         if openp:
             print("[+] SSH server detected")
@@ -130,16 +143,24 @@ class Modules:
     def IsFTP(self):
         print("[#] Checking for FTP server...\n")
         ports = [21]
-        openp = self.FTPattack.PortScan(ports)
+        openp = PortScan(self, ports)
 
         if openp:
             print("[+] FTP server detected")
+            anonlogon = self.FTPattack.CheckAnonymousLogin()
+
+            if anonlogon[0]:
+                message = ""
+                for file in anonlogon[1]:
+                    message += f"[{str(anonlogon[1].index(file) + 1)}]\t » {file}\n"
+                print("[+] Anonymous login possible\n{}".format(message))
+
         else:
             print("[-] FTP server not detected")
     def IsTELNET(self):
         print("[#] Checking for TELNET server...\n")
         ports = [23]
-        openp = self.TELNETattack.PortScan(ports)
+        openp = PortScan(self, ports)
 
         if openp:
             print("[+] TELNET server detected")
@@ -150,3 +171,6 @@ if __name__ == "__main__":
     target = input("Target: ")
     mod = Modules(target)
     mod.IsHTTP()
+    mod.IsSSH()
+    mod.IsFTP()
+    mod.IsTELNET()
