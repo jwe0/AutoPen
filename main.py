@@ -41,7 +41,6 @@ class HTTPAttacks:
     def __init__(self, target) -> None:
         self.target = target
 
-    
     def CheckCommonFiles(self):
         paths = []
         exten = [".txt", ".php", ".xml", ".html"]
@@ -77,6 +76,17 @@ class HTTPAttacks:
             return r.text.split("<title>")[1].split("</title>")[0]
         return "No title found"
     
+
+    def CheckWordPress(self):
+        r = requests.get(f"http://{self.target}/")
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            ver = soup.find("meta", {"name": "generator"})
+            if ver and ver.get("content"):
+                return (True, ver.get("content"))
+            else:
+                return (False, "No version found")
+        return (False, str(r.status_code))
 
 class SSHAttacks:
     def __init__(self, target) -> None:
@@ -115,7 +125,7 @@ class FTPAttacks:
                 return (True, files)
         except Exception as e:
             print(e)
-            return (False, files)
+            return (False, [])
         
     def CheckBanner(self):
         s = socket.socket()
@@ -139,50 +149,51 @@ class Modules:
         self.TELNETattack = TELNETAttacks(target)
         self.Modules = GeneralModules(target)
 
-    
-
     def IsHTTP(self):
         print("[#] Checking for web server...\n")
         ports = [80, 8000, 8080, 443]
         openp = self.Modules.PortScan(ports)
 
         if openp:
+            iswordpress = self.HTTPattack.CheckWordPress()
+            if iswordpress[0]:
+                wordpressver = iswordpress[1]
             title = self.HTTPattack.CheckPageTitle()
-            message = ""
+            print("[+] Web server detected {}".format(title))
             for port in openp:
-                message += f"[{str(openp.index(port) + 1)}]\t » http://{self.target}:{port}/\n"
-            print("[+] Web server detected {}\n{}".format(title, message))
+                print(f"[{str(openp.index(port) + 1)}]\t » http://{self.target}:{port}/")
 
             files = self.HTTPattack.CheckCommonFiles()
 
             if files:
-                message = ""
                 progres = 0
+                print("[+] Common files found")
                 for file in files:
                     progres += 1
-                    message += f"[{str(progres)}]\t » {file[0]}\n"
+                    print(f"[{str(progres)}]\t » {file[0]}")
                     if file[1]:
-                        lines = []
                         tlines = file[1].split("\n")
                         for line in tlines:
                             if line:
-                                lines.append(line)
-                        lines = ", ".join(lines)
-                        message += f"\t\t » {lines}\n"
-                print("[+] Common files found\n{}".format(message))
+                                print(f"\t\t » {line}")
 
             logins = self.HTTPattack.CheckLoginPortals()
 
             if logins:
-                message = ""
+                print("[+] Login portals found")
                 for login in logins:
-                    message += f"[{str(logins.index(login) + 1)}]\t » {login}\n"
-                print("[+] Login portals found\n{}".format(message))
+                    print(f"[{str(logins.index(login) + 1)}]\t » {login}")
+
+            if iswordpress[0]:
+                exploits = self.Modules.FindCVE_NVD_NIST(wordpressver)
+
+                if exploits:
+                    print("[+] Exploits found {}".format(len(exploits)))
+                    for exploit in exploits:
+                        print(f"[{str(exploits.index(exploit) + 1)}]\t » {exploit}")
 
         else:
             print("[-] Web server not detected")
-
-
 
     def IsSSH(self):
         print("[#] Checking for SSH server...\n")
@@ -209,14 +220,12 @@ class Modules:
             exploits = self.Modules.FindCVE_NVD_NIST(banner)
 
             if exploits:
-                message = ""
+                print("[+] Exploits found {}".format(len(exploits)))
                 for exploit in exploits:
-                    message += f"[{str(exploits.index(exploit) + 1)}]\t » {exploit}\n"
-                print("[+] Exploits found {}\n{}".format(len(exploits), message))
+                    print(f"[{str(exploits.index(exploit) + 1)}]\t » {exploit}")
 
         else:
             print("[-] SSH server not detected")
-
 
     def IsFTP(self):
         print("[#] Checking for FTP server...\n")
@@ -229,21 +238,20 @@ class Modules:
             anonlogon = self.FTPattack.CheckAnonymousLogin()
 
             if anonlogon[0]:
-                message = ""
+                print("[+] Anonymous login possible")
                 for file in anonlogon[1]:
-                    message += f"[{str(anonlogon[1].index(file) + 1)}]\t » {file}\n"
-                print("[+] Anonymous login possible\n{}".format(message))
+                    print(f"[{str(anonlogon[1].index(file) + 1)}]\t » {file}")
 
             exploits = self.Modules.FindCVE_NVD_NIST(banner)
 
             if exploits:
-                message = ""
+                print("[+] Exploits found {}".format(len(exploits)))
                 for exploit in exploits:
-                    message += f"[{str(exploits.index(exploit) + 1)}]\t » {exploit}\n"
-                print("[+] Exploits found {}\n{}".format(len(exploits), message))
+                    print(f"[{str(exploits.index(exploit) + 1)}]\t » {exploit}")
 
         else:
             print("[-] FTP server not detected")
+
     def IsTELNET(self):
         print("[#] Checking for TELNET server...\n")
         ports = [23]
@@ -258,7 +266,7 @@ if __name__ == "__main__":
     target = input("Target: ")
     print("[#] Scanning... (This may take a while)\n")
     mod = Modules(target)
-    # mod.IsHTTP()
+    mod.IsHTTP()
     mod.IsSSH()
-    # mod.IsFTP()
-    # mod.IsTELNET()
+    mod.IsFTP()
+    mod.IsTELNET()
