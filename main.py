@@ -1,5 +1,6 @@
-import socket, requests, paramiko
+import socket, requests, paramiko, urllib.parse
 from ftplib import FTP
+from bs4 import BeautifulSoup
 
 class GeneralModules:
     def __init__(self, target) -> None:
@@ -24,6 +25,17 @@ class GeneralModules:
         s.close()
 
         return banner
+    
+    def FindCVE_NVD_NIST(self, search):
+        vulns = []
+        dist = "https://nvd.nist.gov/vuln/search/results?form_type=Basic&results_type=overview&query={}&search_type=all&isCpeNameSearch=false".format(urllib.parse.quote(search))
+        r = requests.get(dist)
+        soup = BeautifulSoup(r.text, 'html.parser')
+        for a in soup.find_all('a', href=True):
+            vulns.append(a['href'] if "detail" in a['href'] else None)
+        exploits = [vuln for vuln in vulns if vuln is not None]
+
+        return exploits
 
 class HTTPAttacks:
     def __init__(self, target) -> None:
@@ -194,6 +206,14 @@ class Modules:
                         message += f"\t\t » {cipher}\n"
                 print("[+] Algorithms found\n{}".format(message))
 
+            exploits = self.Modules.FindCVE_NVD_NIST(banner)
+
+            if exploits:
+                message = ""
+                for exploit in exploits:
+                    message += f"[{str(exploits.index(exploit) + 1)}]\t » {exploit}\n"
+                print("[+] Exploits found\n{}".format(message))
+
         else:
             print("[-] SSH server not detected")
 
@@ -214,6 +234,14 @@ class Modules:
                     message += f"[{str(anonlogon[1].index(file) + 1)}]\t » {file}\n"
                 print("[+] Anonymous login possible\n{}".format(message))
 
+            exploits = self.Modules.FindCVE_NVD_NIST(banner)
+
+            if exploits:
+                message = ""
+                for exploit in exploits:
+                    message += f"[{str(exploits.index(exploit) + 1)}]\t » {exploit}\n"
+                print("[+] Exploits found\n{}".format(message))
+
         else:
             print("[-] FTP server not detected")
     def IsTELNET(self):
@@ -230,7 +258,7 @@ if __name__ == "__main__":
     target = input("Target: ")
     print("[#] Scanning... (This may take a while)\n")
     mod = Modules(target)
-    mod.IsHTTP()
+    # mod.IsHTTP()
     mod.IsSSH()
-    mod.IsFTP()
-    mod.IsTELNET()
+    # mod.IsFTP()
+    # mod.IsTELNET()
