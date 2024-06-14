@@ -1,4 +1,4 @@
-import socket, requests
+import socket, requests, paramiko
 from ftplib import FTP
 
 def PortScan(self, ports):
@@ -57,6 +57,25 @@ class SSHAttacks:
     def __init__(self, target) -> None:
         self.target = target
 
+    def CheckBanner(self):
+        s = socket.socket()
+        s.settimeout(5)
+        s.connect((self.target, 22))
+        banner = s.recv(1024).decode().strip()
+        s.close()
+
+        return banner 
+    
+    def CheckAlgorithm(self):
+        transport = paramiko.Transport((self.target, 22))
+        transport.start_client()
+
+        hex = transport.get_security_options().kex
+        ciphers = transport.get_security_options().ciphers
+        transport.close()
+
+        return (hex, ciphers)
+
 class FTPAttacks:
     def __init__(self, target) -> None:
         self.target = target
@@ -72,6 +91,7 @@ class FTPAttacks:
         except Exception as e:
             print(e)
             return (False, files)
+        
 class TELNETAttacks:
     def __init__(self, target) -> None:
         self.target = target
@@ -135,7 +155,22 @@ class Modules:
         openp = PortScan(self, ports)
 
         if openp:
-            print("[+] SSH server detected")
+            banner = self.SSHattack.CheckBanner()
+            print("[+] SSH server detected {}".format(banner))
+
+            algorithms = self.SSHattack.CheckAlgorithm()
+            progress = 0
+            if algorithms[0]:
+                progress += 1
+                message = ""
+                for algorithm in algorithms:
+                    name = "Algorithms" if progress == 1 else "Hexs"
+                    message += f"[{str(algorithms.index(algorithm) + 1)}]\t » {name}\n"
+                    progress += 1
+                    for cipher in algorithm:
+                        message += f"\t\t » {cipher}\n"
+                print("[+] Algorithms found\n{}".format(message))
+
         else:
             print("[-] SSH server not detected")
 
@@ -170,7 +205,7 @@ class Modules:
 if __name__ == "__main__":
     target = input("Target: ")
     mod = Modules(target)
-    mod.IsHTTP()
+    # mod.IsHTTP()
     mod.IsSSH()
-    mod.IsFTP()
-    mod.IsTELNET()
+    # mod.IsFTP()
+    # mod.IsTELNET()
